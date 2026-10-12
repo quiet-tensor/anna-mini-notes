@@ -130,7 +130,13 @@ npm run dev          # = anna-app dev --no-llm
 
 UI harness 里**没有**用 mock fixture 伪造 summary；sampling 的 mock 只在下一节的后端测试中使用。
 
-> 关于 manifest 中的 `ui.host_api.llm: ["complete"]`：本地 harness 把 Executa 的反向 `sampling/createMessage` 路由到 App 会话的 `llm.complete` dispatcher 上执行，并按 App 的 `ui.host_api.llm` 做 ACL 检查；不声明时 harness 会回 `[-32603] manifest does not grant 'llm.complete'`，而不是上面的 `--no-llm` 错误。前端代码**从不**调用 `anna.llm.*`（`validate --strict` 的 bundle 扫描可以证明），summary 只走 Executa。
+### 为什么 manifest 声明了 `ui.host_api.llm: ["complete"]`
+
+这一项是让 `--no-llm` 下得到题目要求的 `[-32603] harness started with --no-llm` 的**必要条件**，与“前端不得直接调用 `anna.llm.complete`”不冲突：
+
+- 本地 harness（`anna-app-runtime-local`）收到 Executa 的反向 `sampling/createMessage` 后，按 `session.py` 中的 `_REVERSE_RPC_ROUTE` 把它映射为 `("llm", "complete")`，经 `anna_app_core/dispatcher.py::dispatch` 执行；`dispatch` 先用 `host_api_allows(manifest, "llm", "complete")` 检查 App 的 `ui.host_api.llm`，通过后才进入 LLM bridge，此时 `--no-llm` 返回 `harness started with --no-llm`。
+- 不声明时，sampling 会在 ACL 这一步被提前拒绝，UI 得到的是 `[-32603] manifest does not grant 'llm.complete'`，与题目要求不一致（已实测两种情况）。
+- 这个声明只是让 **Executa 的 sampling** 能通过 harness 的检查；iframe 自身从不使用它。`npm run check:frontend` 会扫描 `src/` 与构建后的 `bundle/`：出现任何 `anna.llm.*`、`fetch`、`XMLHttpRequest`、`localStorage` / `indexedDB`，或除 `anna.storage.get/set`、`anna.tools.invoke`、`anna.window.set_title` 之外的 Host API 调用即失败（已纳入 `npm test` 和 CI）。harness RPC LOG 中也只会出现 `storage.*`、`tools.invoke`、`window.*`，不会有 iframe 发起的 `llm.complete`。
 
 ## 6. 用 `anna-app executa dev --mock-sampling` 单独测试后端 sampling
 
@@ -204,7 +210,7 @@ stdout 依次输出：`initialize` 结果（`protocolVersion: "2.0"`、`client_c
 
 ## 9. 如何确认 summary 走的是 `anna.tools.invoke -> Executa -> sampling/createMessage`
 
-1. UI 侧：activity 面板 / harness RPC LOG 中出现 `anna.tools.invoke tool-mini-notes-summarizer · summarize_notes`；前端没有任何生成 summary 的代码（`src/summary/summarizer.ts` 只解包 Tool 返回的 `data.summary`），也不调用 `anna.llm.*` 或 `fetch`。
+1. UI 侧：activity 面板 / harness RPC LOG 中出现 `anna.tools.invoke tool-mini-notes-summarizer · summarize_notes`；前端没有任何生成 summary 的代码（`src/summary/summarizer.ts` 只解包 Tool 返回的 `data.summary`），也不调用 `anna.llm.*` 或 `fetch`——`npm run check:frontend` 对源码和 bundle 自动验证这一点。
 2. Executa 侧：harness 终端中的 `[sampling] -> sampling/createMessage {"invoke_id":"<host invoke_id>"}`，`invoke_id_source: "host"` 表明关联 id 来自 harness 注入的 `context.invoke_id`。
 3. Sampling 侧：`--no-llm` 下 host 对 sampling 的拒绝原样回到 UI（第 5 节）；`npm run executa:mock` / `npm run test:protocol` 中 summary 与 sampling 回复逐字一致（第 6、7 节）。
 
@@ -283,7 +289,7 @@ unzip -Z executas/notes-summarizer/dist/*.zip           # Windows 产物
 
 ## 12. 概念关系
 
-- **manifest**（`manifest.json`）：App 的契约。声明依赖的 Executa（`required_executas`）、iframe 可调用的 Host API（`ui.host_api` 是唯一的运行时 ACL：`storage: get/set`、`tools: required:<tool_id>`）、UI bundle 入口与 views，以及只给本地 harness 用的 `dev` 配置。`permissions` 在 schema 2 中仅作展示。
+- **manifest**（`manifest.json`）：App 的契约。声明依赖的 Executa（`required_executas`）、iframe 可调用的 Host API（`ui.host_api` 是唯一的运行时 ACL：`storage: get/set`、`tools: required:<tool_id>`，以及供本地 harness 放行 Executa sampling 的 `llm: complete`，见第 5 节）、UI bundle 入口与 views，以及只给本地 harness 用的 `dev` 配置。`permissions` 在 schema 2 中仅作展示。
 - **bundle**（`bundle/`）：`npm run build` 生成的静态 SPA，被 host 装进 iframe；通过 host 提供的 `AnnaAppRuntime.connect()` 握手，之后所有能力都经 postMessage RPC 调 Host API，不直连任何后端。
 - **executas**（`executas/notes-summarizer/`）：Agent（本地为 harness）以子进程方式启动的工具，JSON-RPC 2.0 over stdio。App 只能用 `anna.tools.invoke` 调用 manifest 里声明的 Executa。
 - **Anna storage / APS KV**：`anna.storage.*` 是 App 的 KV。本地 `anna-app dev` 默认 legacy 模式，存在窗口的 in-memory `runtime_state`（≤256 KB，dev 重启即清空）；生产环境同一组方法由 APS（`scope=app`）承接，代码无需改动。manifest 中的 `aps.kv` 声明了这一 KV 面。
@@ -299,6 +305,6 @@ npx anna-app validate --strict
 npm run dev                   # anna-app dev --no-llm（UI harness）
 npm run executa:mock          # anna-app executa dev --mock-sampling（后端 sampling）
 npm run test:protocol         # 手动协议测试（伪 host + transcript）
-npm test                      # 身份一致性 + 协议测试
+npm test                      # 身份一致性 + 前端边界检查 + 协议测试
 npm run package:binary        # 本机二进制 archive
 ```

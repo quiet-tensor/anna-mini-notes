@@ -16,12 +16,13 @@
     "dev": "anna-app dev --no-llm",
     "dev:ui": "anna-app dev --no-llm",
     "check:identity": "node scripts/check-identity.mjs",
+    "check:frontend": "node scripts/check-frontend-boundaries.mjs",
     "executa:describe": "anna-app executa dev --dir executas/notes-summarizer --describe",
     "executa:mock": "node scripts/executa-mock.mjs",
     "executa:repl": "anna-app executa dev --dir executas/notes-summarizer --mock-sampling executas/notes-summarizer/fixtures/sampling.jsonl",
     "test:protocol": "node executas/notes-summarizer/test/protocol.test.mjs",
     "package:binary": "node executas/notes-summarizer/scripts/build-binary.mjs",
-    "test": "npm run check:identity && npm run test:protocol",
+    "test": "npm run check:identity && npm run check:frontend && npm run test:protocol",
     "ci": "npm run build && npm run validate && npm test"
   },
   "devDependencies": {
