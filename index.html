@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mini Notes</title>
+  </head>
+  <body>
+    <main class="app">
+      <header>
+        <h1>Mini Notes</h1>
+        <p class="muted small">
+          Notes are stored with <code>anna.storage.*</code>; summaries come from the bundled Executa via
+          <code>anna.tools.invoke</code> → <code>sampling/createMessage</code>.
+        </p>
+      </header>
+
+      <form id="note-form" class="composer" autocomplete="off">
+        <label for="note-input" class="sr-only">New note</label>
+        <textarea id="note-input" rows="2" maxlength="500" placeholder="e.g. 明天跟客户 follow up"></textarea>
+        <button id="add-btn" type="submit">Save</button>
+      </form>
+
+      <p id="status" class="status" role="status" hidden></p>
+
+      <section class="notes">
+        <div class="section-head">
+          <h2>Notes <span id="note-count" class="badge">0</span></h2>
+          <button id="summarize-btn" type="button" class="primary">Summarize</button>
+        </div>
+        <p id="empty-state" class="muted">No notes yet — write one above.</p>
+        <ol id="note-list" class="note-list"></ol>
+      </section>
+
+      <section id="summary" class="summary" hidden aria-live="polite"></section>
+
+      <details class="activity-panel">
+        <summary>Host API activity</summary>
+        <p class="muted small">Every call this window makes to the Anna host, newest first.</p>
+        <ol id="activity" class="activity"></ol>
+      </details>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

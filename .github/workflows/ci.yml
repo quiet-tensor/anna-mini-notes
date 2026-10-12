@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx anna-app validate --strict
+      - run: npm test
+      - name: Backend sampling via anna-app executa dev --mock-sampling
+        run: npm run executa:mock -- --json
+      - name: Native binary for this runner (linux-x86_64) + smoke test
+        run: npm run package:binary

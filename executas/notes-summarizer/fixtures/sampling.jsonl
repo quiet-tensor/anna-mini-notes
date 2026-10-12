@@ -1,0 +1,5 @@
+# Mock replies for `anna-app executa dev --mock-sampling fixtures/sampling.jsonl`.
+# Each non-comment line answers one reverse `sampling/createMessage` request
+# issued by the tool. The text is deliberately tagged "(mock sampling)" so a
+# reviewer can tell it came back through the sampling channel, not from tool code.
+{"ns":"sampling","method":"createMessage","match":{"contentIncludes":"Summarize these notes."},"result":{"role":"assistant","content":{"type":"text","text":"(mock sampling) You have three open threads: a customer follow-up, a login bug fix and workshop planning.\n- Follow up with the customer tomorrow\n- Fix the login bug\n- Collect content ideas for the workshop"},"model":"mock-sampling-fixture","stopReason":"endTurn","usage":{"inputTokens":96,"outputTokens":48,"totalTokens":144}}}

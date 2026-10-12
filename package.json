@@ -1,0 +1,34 @@
+{
+  "name": "anna-mini-notes",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mini Notes with LLM Summary — an Anna App (storage Host API + Executa Tool using reverse sampling).",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "npm run typecheck && vite build",
+    "build:watch": "vite build --watch",
+    "validate": "anna-app validate --strict",
+    "dev": "anna-app dev --no-llm",
+    "dev:ui": "anna-app dev --no-llm",
+    "check:identity": "node scripts/check-identity.mjs",
+    "executa:describe": "anna-app executa dev --dir executas/notes-summarizer --describe",
+    "executa:mock": "node scripts/executa-mock.mjs",
+    "executa:repl": "anna-app executa dev --dir executas/notes-summarizer --mock-sampling executas/notes-summarizer/fixtures/sampling.jsonl",
+    "test:protocol": "node executas/notes-summarizer/test/protocol.test.mjs",
+    "package:binary": "node executas/notes-summarizer/scripts/build-binary.mjs",
+    "test": "npm run check:identity && npm run test:protocol",
+    "ci": "npm run build && npm run validate && npm test"
+  },
+  "devDependencies": {
+    "@anna-ai/cli": "^0.1.58",
+    "esbuild": "^0.28.2",
+    "postject": "^1.0.0-alpha.6",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4"
+  }
+}

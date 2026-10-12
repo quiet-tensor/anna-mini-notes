@@ -1,0 +1,8 @@
+{
+  "slug": "mini-notes",
+  "name": "Mini Notes",
+  "version": "0.1.0",
+  "tagline": "Jot down short notes and let the host LLM summarize them.",
+  "description": "Mini Notes stores short notes through the Anna storage Host API and summarizes them with a bundled Executa Tool that borrows the host LLM via reverse sampling/createMessage.",
+  "category": "productivity"
+}

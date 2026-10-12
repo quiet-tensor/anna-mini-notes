@@ -1,0 +1,33 @@
+{
+  "slug": "notes-summarizer",
+  "name": "Mini Notes Summarizer",
+  "version": "0.1.0",
+  "executa_type": "tool",
+  "description": "Exposes `summarize_notes`, which asks the host LLM to summarize the Mini Notes app's notes via reverse sampling/createMessage.",
+
+  "tool_id": "tool-mini-notes-summarizer",
+  "type": "node",
+  "enabled": true,
+
+  "distribution": {
+    "active": "local",
+    "profiles": {
+      "local": {
+        "type": "local",
+        "supports_protocol": true
+      },
+      "binary": {
+        "type": "binary",
+        "executable_name": "tool-mini-notes-summarizer",
+        "supports_protocol": true,
+        "binary_artifacts": {
+          "darwin-arm64":   { "path": "dist/tool-mini-notes-summarizer-{version}-darwin-arm64.tar.gz",  "entrypoint": "bin/tool-mini-notes-summarizer" },
+          "darwin-x86_64":  { "path": "dist/tool-mini-notes-summarizer-{version}-darwin-x86_64.tar.gz", "entrypoint": "bin/tool-mini-notes-summarizer" },
+          "windows-x86_64": { "path": "dist/tool-mini-notes-summarizer-{version}-windows-x86_64.zip",   "entrypoint": "bin/tool-mini-notes-summarizer.exe", "format": "zip" }
+        }
+      }
+    }
+  },
+
+  "_comment": "tool_id/type/enabled are read by `anna-app dev` and `anna-app executa dev`; `type: node` launches `node <package.json bin[tool_id]>` = src/index.js. The `binary` profile points at the archives produced by `npm run package:binary` / the release workflow (one per platform key)."
+}

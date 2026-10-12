@@ -1,0 +1,159 @@
+# ============================================================
+# Release: build the notes-summarizer Executa for three platforms
+# and attach the archives to a GitHub Release.
+#
+# Triggers
+#   - push a tag  v*            e.g. `git tag v0.1.0 && git push origin v0.1.0`
+#   - workflow_dispatch         Actions → Release → Run workflow → tag (e.g. v0.1.0)
+#
+# Release assets (one per platform key, plus .sha256 files)
+#   tool-mini-notes-summarizer-<version>-darwin-arm64.tar.gz
+#   tool-mini-notes-summarizer-<version>-darwin-x86_64.tar.gz
+#   tool-mini-notes-summarizer-<version>-windows-x86_64.zip
+#
+# Node SEA binaries can only be produced for the OS/CPU of the node that
+# builds them, so each platform builds natively on its own runner.
+# ============================================================
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to create/update (e.g. v0.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "24"
+  RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  verify:
+    name: Verify app + protocol
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Build UI bundle
+        run: npm run build
+      - name: anna-app validate --strict
+        run: npx anna-app validate --strict
+      - name: Tool identity + JSON-RPC protocol tests (source)
+        run: npm test
+
+  build:
+    name: Build ${{ matrix.platform }}
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: darwin-arm64
+            os: macos-14          # Apple Silicon
+            ext: tar.gz
+          - platform: darwin-x86_64
+            os: macos-15-intel    # Intel
+            ext: tar.gz
+          - platform: windows-x86_64
+            os: windows-latest
+            ext: zip
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+
+      - name: Build binary archive (runs the full protocol test against the binary)
+        id: build
+        run: npm run package:binary
+
+      - name: Check platform key matches the runner
+        run: |
+          test "${{ steps.build.outputs.platform }}" = "${{ matrix.platform }}" \
+            || { echo "built ${{ steps.build.outputs.platform }}, expected ${{ matrix.platform }}"; exit 1; }
+          ls -l executas/notes-summarizer/dist/
+
+      - name: Smoke test — extract archive, send `describe` over stdio
+        run: |
+          set -euo pipefail
+          archive="${{ steps.build.outputs.archive }}"
+          rm -rf smoke && mkdir smoke
+          if [[ "${{ matrix.ext }}" == "zip" ]]; then
+            python -c "import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall('smoke')" "$archive"
+            exe=smoke/bin/tool-mini-notes-summarizer.exe
+          else
+            tar -xzf "$archive" -C smoke
+            exe=smoke/bin/tool-mini-notes-summarizer
+            test -x "$exe" || { echo "entrypoint is not executable"; exit 1; }
+          fi
+          echo "archive contents:"; find smoke -type f | sort
+          test -f smoke/manifest.json || { echo "archive root manifest.json missing"; exit 1; }
+          node -e "const m=require('./smoke/manifest.json'); if(m.name!=='tool-mini-notes-summarizer'||!m.runtime.binary.entrypoint.default) process.exit(1); console.log('archive manifest ok')"
+          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"describe"}' | "$exe" 2>/dev/null > describe.json
+          node -e "
+            const r = JSON.parse(require('fs').readFileSync('describe.json','utf8').trim().split('\n')[0]);
+            const m = r.result;
+            if (m.name !== 'tool-mini-notes-summarizer') throw new Error('bad name ' + m.name);
+            if (!m.host_capabilities.includes('llm.sample')) throw new Error('llm.sample not declared');
+            if (!m.tools.some(t => t.name === 'summarize_notes')) throw new Error('summarize_notes missing');
+            if (m.runtime.type !== 'binary') throw new Error('not running as a binary');
+            console.log('describe ok:', m.name, m.version, m.runtime.engine);
+          "
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: executa-${{ matrix.platform }}
+          path: |
+            executas/notes-summarizer/dist/*.${{ matrix.ext }}
+            executas/notes-summarizer/dist/*.sha256
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: executa-*
+          path: release
+          merge-multiple: true
+      - name: List release assets
+        run: |
+          ls -l release
+          for p in darwin-arm64.tar.gz darwin-x86_64.tar.gz windows-x86_64.zip; do
+            ls release/*-"$p" >/dev/null || { echo "missing *-$p"; exit 1; }
+          done
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
+          name: Mini Notes Summarizer ${{ env.RELEASE_TAG }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            release/*.tar.gz
+            release/*.zip
+            release/*.sha256

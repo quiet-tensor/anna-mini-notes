@@ -1,0 +1,11 @@
+node_modules/
+# vite build output (the Anna App bundle) — produce it with `npm run build`
+bundle/
+# Executa binary build output
+executas/notes-summarizer/dist/
+executas/notes-summarizer/.build/
+# anna-app CLI identity cache / harness recordings
+.anna/
+recordings/
+*.log
+.DS_Store

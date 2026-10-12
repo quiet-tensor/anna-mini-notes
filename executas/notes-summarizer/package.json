@@ -1,0 +1,20 @@
+{
+  "name": "tool-mini-notes-summarizer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Executa Tool for the Mini Notes Anna App: summarize notes via reverse sampling/createMessage.",
+  "license": "MIT",
+  "main": "src/index.js",
+  "bin": {
+    "tool-mini-notes-summarizer": "src/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node test/protocol.test.mjs",
+    "dev:mock": "anna-app executa dev --mock-sampling fixtures/sampling.jsonl",
+    "build:binary": "node scripts/build-binary.mjs"
+  }
+}
